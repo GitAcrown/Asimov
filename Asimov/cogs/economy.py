@@ -50,22 +50,25 @@ class Bank:
         self.bot = bot
 
     def create_account(self, user):
-        server = user.server
-        if not self.account_exists(user):
-            if server.id not in self.accounts:
-                self.accounts[server.id] = {}
-            if user.id in self.accounts: # Legacy account
-                balance = self.accounts[user.id]["balance"]
+        try:
+            server = user.server
+            if not self.account_exists(user):
+                if server.id not in self.accounts:
+                    self.accounts[server.id] = {}
+                if user.id in self.accounts: # Legacy account
+                    balance = self.accounts[user.id]["balance"]
+                else:
+                    balance = 0
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                account = {"name" : user.name, "balance" : balance,
+                "created_at" : timestamp}
+                self.accounts[server.id][user.id] = account
+                self._save_bank()
+                return self.get_account(user)
             else:
-                balance = 0
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            account = {"name" : user.name, "balance" : balance,
-            "created_at" : timestamp}
-            self.accounts[server.id][user.id] = account
-            self._save_bank()
-            return self.get_account(user)
-        else:
-            raise AccountAlreadyExists()
+                raise AccountAlreadyExists()
+        except:
+            pass
 
     def account_exists(self, user):
         try:
