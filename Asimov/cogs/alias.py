@@ -3,8 +3,9 @@ from .utils.chat_formatting import *
 from .utils.dataIO import dataIO
 from .utils import checks
 from __main__ import user_allowed, send_cmd_help
-import os
 from copy import deepcopy
+import os
+import discord
 
 
 class Alias:
@@ -12,28 +13,29 @@ class Alias:
         self.bot = bot
         self.file_path = "data/alias/aliases.json"
         self.aliases = dataIO.load_json(self.file_path)
+        self.remove_old()
 
     @commands.group(pass_context=True, no_pm=True)
     async def alias(self, ctx):
-        """Permet les alias serveur."""
+        """Gestion des alias"""
         if ctx.invoked_subcommand is None:
             await send_cmd_help(ctx)
 
     @alias.command(name="add", pass_context=True, no_pm=True)
     @checks.mod_or_permissions(manage_server=True)
     async def _add_alias(self, ctx, command, *, to_execute):
-        """Ajoute un alias à une commande
+        """Ajoute une commande alias
 
            Exemple: !alias add test flip @Acrown"""
         server = ctx.message.server
         command = command.lower()
         if len(command.split(" ")) != 1:
-            await self.bot.say("Impossible de faire des alias avec plusieurs mots. :(")
+            await self.bot.say("Il est impossible de faire des commandes avec plusieurs mots.")
             return
         if self.part_of_existing_command(command, server.id):
-            await self.bot.say("Impossible de rajouter un alias composé d'une commande existante.")
+            await self.bot.say('Une commande existe déjà avec ce nom !')
             return
-        prefix = self.get_prefix(to_execute)
+        prefix = self.get_prefix(server, to_execute)
         if prefix is not None:
             to_execute = to_execute[len(prefix):]
         if server.id not in self.aliases:
@@ -43,19 +45,20 @@ class Alias:
             dataIO.save_json(self.file_path, self.aliases)
             await self.bot.say("Alias '{}' ajouté.".format(command))
         else:
-            await self.bot.say("Je ne peux pas rajouter '{}' car c'est une commande de bot.".format(command))
+            await self.bot.say("Impossible d'ajouter '{}' car c'est une commande Bot.".format(command))
 
     @alias.command(name="help", pass_context=True, no_pm=True)
     async def _help_alias(self, ctx, command):
-        """Permet d'afficher une page Help"""
+        """Essaye d'executer les commandes d'aide aux alias"""
         server = ctx.message.server
         if server.id in self.aliases:
             server_aliases = self.aliases[server.id]
             if command in server_aliases:
                 help_cmd = server_aliases[command].split(" ")[0]
-                new_content = self.bot.command_prefix[0]
+                new_content = self.bot.settings.get_prefixes(server)[0]
                 new_content += "help "
-                new_content += help_cmd[len(self.get_prefix(help_cmd)):]
+                new_content += help_cmd[len(self.get_prefix(server,
+                                        help_cmd)):]
                 message = ctx.message
                 message.content = new_content
                 await self.bot.process_commands(message)
@@ -64,7 +67,7 @@ class Alias:
 
     @alias.command(name="show", pass_context=True, no_pm=True)
     async def _show_alias(self, ctx, command):
-        """Montre la commande qu'un alias execute."""
+        """Montre quelle commande un alias exécute."""
         server = ctx.message.server
         if server.id in self.aliases:
             server_aliases = self.aliases[server.id]
@@ -86,30 +89,30 @@ class Alias:
 
     @alias.command(name="list", pass_context=True, no_pm=True)
     async def _alias_list(self, ctx):
-        """Montre une liste des alias disponibles.
+        """Affiche une liste des alias disponibles
 
         En MP"""
         server = ctx.message.server
         if server.id in self.aliases:
-            message = "```Alias:\n"
+            message = "```Alias - liste:\n"
             for alias in sorted(self.aliases[server.id]):
                 if len(message) + len(alias) + 3 > 2000:
                     await self.bot.whisper(message)
                     message = "```\n"
                 message += "\t{}\n".format(alias)
-            if message != "```Alias:\n":
+            if message != "```Alias - liste:\n":
                 message += "```"
                 await self.bot.whisper(message)
             else:
                 await self.bot.say("Aucun alias sur ce serveur.")
 
-    async def check_aliases(self, message):
+    async def on_message(self, message):
         if len(message.content) < 2 or message.channel.is_private:
             return
 
         msg = message.content
         server = message.server
-        prefix = self.get_prefix(msg)
+        prefix = self.get_prefix(server, msg)
 
         if not prefix:
             return
@@ -142,7 +145,8 @@ class Alias:
                 if aliasname != self.first_word(aliasname):
                     to_delete.append(aliasname)
                     continue
-                prefix = self.get_prefix(alias)
+                server = discord.Object(id=sid)
+                prefix = self.get_prefix(server, alias)
                 if prefix is not None:
                     self.aliases[sid][aliasname] = alias[len(prefix):]
             for alias in to_delete:  # Fixes caps and bad prefixes
@@ -154,8 +158,9 @@ class Alias:
     def first_word(self, msg):
         return msg.split(" ")[0]
 
-    def get_prefix(self, msg):
-        for p in self.bot.command_prefix:
+    def get_prefix(self, server, msg):
+        prefixes = self.bot.settings.get_prefixes(server)
+        for p in prefixes:
             if msg.startswith(p):
                 return p
         return None
@@ -179,7 +184,4 @@ def check_file():
 def setup(bot):
     check_folder()
     check_file()
-    n = Alias(bot)
-    n.remove_old()
-    bot.add_listener(n.check_aliases, "on_message")
-    bot.add_cog(n)
+    bot.add_cog(Alias(bot))
