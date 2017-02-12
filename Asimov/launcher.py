@@ -458,8 +458,8 @@ def create_fast_start_scripts():
     start_red_autorestart = ccd + start_red_autorestart + pause
 
     files = {
-        "start_red"             + ext : start_red,
-        "start_red_autorestart" + ext : start_red_autorestart
+        "Lancement - Asimov"             + ext : start_red,
+        "Lancement AR - Asimov" + ext : start_red_autorestart
     }
 
     if not IS_WINDOWS:
