@@ -54,7 +54,6 @@ class Owner:
         self.session.close()
 
     @commands.command()
-    @checks.is_owner()
     async def load(self, *, module: str):
         """Charge un module"""
         module = module.strip()
@@ -80,7 +79,6 @@ class Owner:
             await self.bot.say("Module activé.")
 
     @commands.group(invoke_without_command=True)
-    @checks.is_owner()
     async def unload(self, *, module: str):
         """Décharge un module"""
         module = module.strip()
@@ -102,7 +100,6 @@ class Owner:
             await self.bot.say("Module désactivé.")
 
     @unload.command(name="all")
-    @checks.is_owner()
     async def unload_all(self):
         """Décharge l'ensemble des modules (Sauf Owner)"""
         cogs = self._list_cogs()
@@ -124,7 +121,6 @@ class Owner:
         else:
             await self.bot.say("Déchargés...")
 
-    @checks.is_owner()
     @commands.command(name="reload")
     async def _reload(self, module):
         """Recharge un module"""
@@ -153,7 +149,6 @@ class Owner:
             await self.bot.say("Module rechargé.")
 
     @commands.command(pass_context=True, hidden=True)
-    @checks.is_owner()
     async def debug(self, ctx, *, code):
         """Evalue un code"""
         code = code.strip('` ')
@@ -376,7 +371,6 @@ class Owner:
         await self.bot.logout()
 
     @commands.group(name="command", pass_context=True)
-    @checks.is_owner()
     async def command_disabler(self, ctx):
         """Désactive une commande"""
         if ctx.invoked_subcommand is None:
